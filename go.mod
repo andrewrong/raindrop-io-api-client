@@ -1,4 +1,4 @@
-module github.com/kattaris/raindrop-io-api-client
+module github.com/andrewrong/raindrop-io-api-client
 
 go 1.17
 
