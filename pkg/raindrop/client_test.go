@@ -97,7 +97,11 @@ func Test_GetRaindrops(t *testing.T) {
 	// Then
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	actual, err := sut.GetRaindrops("access-token", "1", 50, ctx)
+	param := &SearchRdParams{
+		Search:   "1",
+		PageSize: 50,
+	}
+	actual, err := sut.GetRaindrops("access-token", param, ctx)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
