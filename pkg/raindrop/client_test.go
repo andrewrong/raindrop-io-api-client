@@ -61,14 +61,18 @@ func TestClient_GetAuthorizationURL(t *testing.T) {
 func Test_GetRaindrops(t *testing.T) {
 	// Given
 	raindrop1 := Raindrop{
-		Tags:  []string{"foo", "bar"},
-		Title: "Test 1",
-		Link:  "https://example.com/1",
+		RaindropUserInfo: RaindropUserInfo{
+			Tags:  []string{"foo", "bar"},
+			Title: "Test 1",
+			Link:  "https://example.com/1",
+		},
 	}
 	raindrop2 := Raindrop{
-		Tags:  []string{"baz"},
-		Title: "Test 2",
-		Link:  "https://example.com/2",
+		RaindropUserInfo: RaindropUserInfo{
+			Tags:  []string{"baz"},
+			Title: "Test 2",
+			Link:  "https://example.com/2",
+		},
 	}
 	expected := MultiRaindropsResponse{
 		Result: true,
@@ -358,9 +362,11 @@ func Test_GetTags(t *testing.T) {
 func Test_GetTaggedRaindrops(t *testing.T) {
 	// Given
 	raindrop1 := Raindrop{
-		Tags:  []string{"foo", "bar"},
-		Title: "Test 1",
-		Link:  "https://example.com/1",
+		RaindropUserInfo: RaindropUserInfo{
+			Tags:  []string{"foo", "bar"},
+			Title: "Test 1",
+			Link:  "https://example.com/1",
+		},
 	}
 	expected := MultiRaindropsResponse{
 		Result: true,

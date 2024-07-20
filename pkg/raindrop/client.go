@@ -7,13 +7,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 	"net/http"
 	"net/url"
 	"path"
 	"strconv"
 	"time"
+
+	"github.com/pkg/errors"
+	"golang.org/x/net/context"
 )
 
 const (
@@ -24,14 +25,21 @@ const (
 	authorizeUri        = endpointAuthorize + "?client_id=%s&redirect_uri=%s"
 	endpointAccessToken = "/oauth/access_token"
 
-	endpointGetRootCollections  = "/rest/v1/collections"
+	// 获得root下面所有的集合(文件夹)
+	endpointGetRootCollections = "/rest/v1/collections"
+	// 获得某一个collection下面的所有的集合
 	endpointGetChildCollections = "/rest/v1/collections/childrens"
-	endpointGetCollection       = "/rest/v1/collection/"
-	endpointCreateCollection    = "/rest/v1/collection"
+	// 获得集合信息
+	endpointGetCollection = "/rest/v1/collection/"
+	// 创建一个集合
+	endpointCreateCollection = "/rest/v1/collection"
 
-	endpointRaindrop  = "/rest/v1/raindrop"
+	// 获得单条item的具体信息
+	endpointRaindrop = "/rest/v1/raindrop"
+	// 多条item的信息更新和创建
 	endpointRaindrops = "/rest/v1/raindrops/"
-	endpointTags      = "/rest/v1/tags"
+	// tag
+	endpointTags = "/rest/v1/tags"
 
 	defaultTimeout = 5 * time.Second
 )
@@ -76,12 +84,12 @@ type refreshTokenRequest struct {
 
 // createCollectionRequest represents create collection api request item
 type createCollectionRequest struct {
-	View     string   `json:"view,omitempty"`
-	Title    string   `json:"title,omitempty"`
-	Sort     int      `json:"sort,omitempty"`
-	Public   bool     `json:"public,omitempty"`
-	ParentId uint32   `json:"parent.$id,omitempty"`
-	Cover    []string `json:"cover,omitempty"`
+	View     string   `json:"view,omitempty"`       // collection的展示样式
+	Title    string   `json:"title,omitempty"`      // name
+	Sort     int      `json:"sort,omitempty"`       // 排序的方式
+	Public   bool     `json:"public,omitempty"`     // 公开
+	ParentId uint32   `json:"parent.$id,omitempty"` // 对应的父类的id，没有就是root目录
+	Cover    []string `json:"cover,omitempty"`      // 收藏的封面网址
 }
 
 // CreateCollectionResponse represents create collection api response item
@@ -99,14 +107,16 @@ type access struct {
 	Draggable bool `json:"draggable"`
 }
 
-// user represents collection's owner
-type user struct {
-	Id int `json:"$id"`
+// UserRef represents collection's owner
+type UserRef struct {
+	Id  int    `json:"$id"`
+	Ref string `json:"$ref"`
 }
 
 // media represents cover link
 type media struct {
 	Link string `json:"link"`
+	Type string `json:"type"`
 }
 
 type pleaseParse struct{}
@@ -124,8 +134,14 @@ type Collection struct {
 	Expanded   bool     `json:"expanded"`
 	Public     bool     `json:"public"`
 	Title      string   `json:"title"`
-	User       user     `json:"user"`
+	User       UserRef  `json:"user"`
 	View       string   `json:"view"`
+}
+
+type CollectionRef struct {
+	Ref             string `json:"$ref"`
+	CollectionId    uint32 `json:"$id"`
+	OldCollectionId uint32 `json:"oid"`
 }
 
 // GetCollectionsResponse represents get root and child collections api response
@@ -140,21 +156,84 @@ type GetCollectionResponse struct {
 	Item   Collection `json:"item"`
 }
 
+type RaindropUserInfo struct {
+	ID         uint32   `json:"_id"` // id
+	Created    string   `json:"created,omitempty"`
+	LastUpdate string   `json:"lastUpdate,omitempty"`
+	Sort       int      `json:"sort,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
+	Media      []media  `json:"media,omitempty"`
+	Cover      string   `json:"cover,omitempty"`
+	Type       string   `json:"type,omitempty"`
+	HTML       string   `json:"html,omitempty"`
+	Excerpt    string   `json:"excerpt,omitempty"`
+	Title      string   `json:"title,omitempty"`
+	Link       string   `json:"link"`
+	Domain     string   `json:"domain"`
+	Note       string   `json:"note,omitempty"` // note limit 0 - 10000
+	User       UserRef  `json:"user"`
+	Removed    bool     `json:"removed"`
+
+	Collection   CollectionRef  `json:"collection,omitempty"` // 貌似无效的字段;
+	CollectionId uint32         `json:"collectionId"`         // 和collection类似,估计是新老字段吧;
+	FileInfo     AttachFileInfo `json:"file,omitempty"`
+	Important    bool           `json:"important"` //表示是否重要，红心
+	Highlights   []Highlight    `json:"highlights,omitempty"`
+	Reminder     Reminder       `json:"reminder,omitempty"`
+}
+
 // Raindrop represents get raindrops api response item
 type Raindrop struct {
-	PleaseParse pleaseParse `json:"pleaseParse"`
-	Created     string      `json:"created,omitempty"`
-	LastUpdate  string      `json:"lastUpdate,omitempty"`
-	Order       int         `json:"order,omitempty"`
-	Tags        []string    `json:"tags,omitempty"`
-	Media       []media     `json:"media,omitempty"`
-	Cover       string      `json:"cover,omitempty"`
-	Collection  Collection  `json:"collection,omitempty"`
-	Type        string      `json:"type,omitempty"`
-	HTML        string      `json:"html,omitempty"`
-	Excerpt     string      `json:"excerpt,omitempty"`
-	Title       string      `json:"title,omitempty"`
-	Link        string      `json:"link"`
+	RaindropUserInfo
+	RaindropAttach
+}
+
+type RaindropAttach struct {
+	Broken bool          `json:"broken"`
+	Cache  RaindropCache `json:"cache"`
+	CRef   CreatorRef    `json:"creatorRef,omitempty"`
+}
+
+type Highlight struct {
+	Id      string `json:"_id"`
+	Text    string `json:"text"`
+	Color   string `json:"color"`
+	Note    string `json:"note"`
+	Created string `json:"created"`
+}
+
+type CreatorRef struct {
+	Id     uint32 `json:"_id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Avatar string `json:"avatar"`
+}
+
+type AttachFileInfo struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+	Size uint32 `json:"size"`
+}
+
+type CacheStatus string
+
+const (
+	READY        CacheStatus = "ready"
+	RETRY        CacheStatus = "retry"
+	FAILED       CacheStatus = "failed"
+	INVALID_O    CacheStatus = "invalid-origin"
+	INVALID_TO   CacheStatus = "invalid-timeout"
+	INVALID_SIZE CacheStatus = "invalid-size"
+)
+
+type RaindropCache struct {
+	Status  CacheStatus `json:"status"`
+	Size    uint32      `json:"size"`
+	Created string      `json:"created"`
+}
+
+type Reminder struct {
+	Date string `json:"date"`
 }
 
 // SingleRaindropResponse represent single raindrop api response
@@ -354,9 +433,10 @@ func (c *Client) CreateSimpleRaindrop(accessToken string, link string, ctx conte
 	}
 
 	raindrop := Raindrop{
-		PleaseParse: pleaseParse{},
-		Title:       title,
-		Link:        link,
+		RaindropUserInfo: RaindropUserInfo{
+			Title: title,
+			Link:  link,
+		},
 	}
 
 	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, raindrop, ctx)
@@ -399,6 +479,28 @@ func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage i
 	}
 
 	r := new(MultiRaindropsResponse)
+	if err := parseResponse(response, 200, &r); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func (c *Client) GetRaindrop(accessToken string, rId uint32, ctx context.Context) (*SingleRaindropResponse, error) {
+
+	u := *c.apiURL
+	u.Path = path.Join(c.apiURL.Path, endpointRaindrop, strconv.FormatUint(uint64(rId), 10))
+
+	req, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
+	if err != nil {
+		return nil, err
+	}
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	r := new(SingleRaindropResponse)
 	if err := parseResponse(response, 200, &r); err != nil {
 		return nil, err
 	}
@@ -459,7 +561,7 @@ func (c *Client) GetTaggedRaindrops(accessToken string, tag string, ctx context.
 	return r, nil
 }
 
-// GetAuthorizationURL returns URL for user to authorize app
+// GetAuthorizationURL returns URL for UserRef to authorize app
 func (c *Client) GetAuthorizationURL() (url.URL, error) {
 	u := c.authURL
 	uri := fmt.Sprintf(authorizeUri, c.clientId, c.redirectUri)
@@ -467,7 +569,7 @@ func (c *Client) GetAuthorizationURL() (url.URL, error) {
 	return *u, nil
 }
 
-// GetAccessToken exchanges user's authorization code to access token
+// GetAccessToken exchanges UserRef's authorization code to access token
 // Reference: https://developer.raindrop.io/v1/authentication/token#step-3-the-token-exchange
 func (c *Client) GetAccessToken(userCode string, ctx context.Context) (*AccessTokenResponse, error) {
 	fullUrl := *c.authURL
@@ -614,5 +716,41 @@ func parseResponse(response *http.Response, expectedStatus int, clazz interface{
 		return err
 	}
 
+	//var bodyCopy bytes.Buffer
+	//tee := io.TeeReader(response.Body, &bodyCopy)
+	//json.NewDecoder(tee).Decode(clazz)
+	//fmt.Printf("%v\n", bodyCopy.String())
+	//return nil
+
 	return json.NewDecoder(response.Body).Decode(clazz)
+}
+
+// update api under this line
+
+func (c *Client) CreateRaindrop(accessToken string, obj *RaindropUserInfo, ctx context.Context) (*SingleRaindropResponse, error) {
+	fullUrl := *c.apiURL
+	fullUrl.Path = path.Join(endpointRaindrop)
+
+	if obj == nil {
+		return nil, errors.New("param is nil")
+	}
+
+	request, err := c.newRequest(accessToken, http.MethodPost, fullUrl, *obj, ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	result := new(SingleRaindropResponse)
+	err = parseResponse(response, 200, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+
 }
