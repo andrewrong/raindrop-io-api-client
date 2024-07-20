@@ -44,6 +44,12 @@ const (
 	defaultTimeout = 5 * time.Second
 )
 
+const (
+	ALL_COLLECTION_ID    = 0   //描述返回所有的集合,除了trash
+	UNSORT_COLLECTION_ID = -1  // unsort collectionid, 中文含义为:没有归类的collection
+	TRASH_COLLECTION_ID  = -99 // trash collection
+)
+
 // Client is a raindrop client
 type Client struct {
 	apiURL       *url.URL
@@ -460,9 +466,9 @@ func (c *Client) CreateSimpleRaindrop(accessToken string, link string, ctx conte
 
 // GetRaindrops call get raindrops API.
 // Reference: https://developer.raindrop.io/v1/raindrops/multiple#get-raindrops
-func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage int, ctx context.Context) (*MultiRaindropsResponse, error) {
+func (c *Client) GetRaindrops(accessToken string, searchParam *SearchRdParams, ctx context.Context) (*MultiRaindropsResponse, error) {
 	u := *c.apiURL
-	u.Path = path.Join(c.apiURL.Path, endpointRaindrops, collectionID)
+	u.Path = path.Join(c.apiURL.Path, endpointRaindrops, strconv.FormatInt(int64(searchParam.CollectionId), 10))
 
 	req, err := c.newRequest(accessToken, http.MethodGet, u, nil, ctx)
 	if err != nil {
@@ -470,7 +476,7 @@ func (c *Client) GetRaindrops(accessToken string, collectionID string, perpage i
 	}
 
 	query := req.URL.Query()
-	query.Add("perpage", fmt.Sprint(perpage))
+	searchParam.AddToQuery(&query)
 	req.URL.RawQuery = query.Encode()
 
 	response, err := c.httpClient.Do(req)
@@ -753,4 +759,34 @@ func (c *Client) CreateRaindrop(accessToken string, obj *RaindropUserInfo, ctx c
 
 	return result, nil
 
+}
+
+type SearchRdParams struct {
+	CollectionId int
+	Search       string //这种有用户来控制
+	Sort         string //按照某一个字段进行排序
+	Page         int    //第几页
+	PageSize     int    //每页多少条
+}
+
+func (s *SearchRdParams) AddToQuery(query *url.Values) {
+	if s.Search != "" {
+		query.Add("search", s.Search)
+	}
+
+	if s.Sort != "" {
+		query.Add("sort", s.Sort)
+	}
+
+	if s.Page > 0 {
+		query.Add("page", strconv.Itoa(s.Page))
+	} else {
+		query.Add("page", "1")
+	}
+
+	if s.PageSize > 0 {
+		query.Add("perpage", strconv.Itoa(s.PageSize))
+	} else {
+		query.Add("pageSize", "20")
+	}
 }
